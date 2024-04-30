@@ -4,6 +4,9 @@ version = "0.1.0"
 description = ""
 authors = ["Thomas Camminady <0milieux_member@icloud.com>"]
 readme = "README.md"
+homepage = "https://github.com/thomascamminady/stra2ics"
+repository = "https://github.com/thomascamminady/stra2ics"
+documentation = "https://camminady.dev/stra2ics/stra2ics.html"
 
 
 [tool.poetry.dependencies]
