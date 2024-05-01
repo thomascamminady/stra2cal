@@ -1,4 +1,5 @@
 import datetime
+from typing import Literal, overload
 
 import duckdb
 
@@ -9,14 +10,27 @@ class DuckDBConnector:
     def __init__(self) -> None:
         self.namespace = NAMESPACE
 
+    @overload
     def _execute_query(
-        self, query: str, parameters: tuple
-    ) -> duckdb.DuckDBPyConnection:
+        self, query: str, parameters: tuple, fetched: Literal[False]
+    ) -> duckdb.DuckDBPyConnection: ...
+    @overload
+    def _execute_query(
+        self, query: str, parameters: tuple, fetched: Literal[True]
+    ) -> tuple | None: ...
+
+    def _execute_query(
+        self, query: str, parameters: tuple, fetched: bool = False
+    ) -> duckdb.DuckDBPyConnection | tuple | None:
         connection = duckdb.connect(
             database=self.namespace.filename_database.as_posix()
         )
         result = connection.execute(query=query, parameters=parameters)
+        if fetched:
+            result = result.fetchone()
+
         connection.close()
+
         return result
 
     def write_credentials(
@@ -38,29 +52,28 @@ class DuckDBConnector:
                 """
 
         parameters = (calendar_url, access_token, refresh_token, expires_at)
-        self._execute_query(query=query, parameters=parameters)
+        self._execute_query(query=query, parameters=parameters, fetched=False)
 
     def write_metadata(self, calendar_url: str, now: datetime.datetime) -> None:
         """Inserts or updates the metadata in the database."""
         query = f"""
                 INSERT INTO {self.namespace.tablename_metadata}
-                (hash, timestamp)
+                (hash, last_request)
                 VALUES (?, ?)
                 ON CONFLICT(hash) DO UPDATE SET
-                timestamp = excluded.timestamp
+                last_request = excluded.last_request
                 """
         parameters = (calendar_url, now)
 
-        self._execute_query(query=query, parameters=parameters)
+        self._execute_query(query=query, parameters=parameters, fetched=False)
 
-    def check_if_credentials_exist(self, calendar_url: str) -> bool:
+    def check_if_credentials_exist(self, calendar_url: str) -> tuple | None:
         """Reads the matching hash from the credentials table."""
         query = f"""
                 SELECT * FROM {self.namespace.tablename_credentials}
                 WHERE hash = ?
                 """
         parameters = (calendar_url,)
-        result = self._execute_query(
-            query=query, parameters=parameters
-        ).fetchone()
-        return result is not None
+        return self._execute_query(
+            query=query, parameters=parameters, fetched=True
+        )

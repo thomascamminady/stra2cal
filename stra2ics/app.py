@@ -1,6 +1,7 @@
 import datetime
 import hashlib
 import os
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
@@ -10,6 +11,7 @@ from starlette.templating import _TemplateResponse
 from stravalib import Client
 
 from stra2ics.duckdb.connector import DuckDBConnector
+from stra2ics.pretty_json import PrettyJSONResponse
 from stra2ics.utils.namespace import NAMESPACE
 
 
@@ -58,13 +60,9 @@ async def logged_in(request: Request) -> _TemplateResponse:
 
         # salt is the current timestamp as a string
         now = datetime.datetime.now()
-        calendar_url = os.path.join(
-            NAMESPACE.web_url,
-            "calendar",
-            hashlib.sha256(
-                (str(now) + access_token["access_token"]).encode("utf-8")
-            ).hexdigest(),
-        )
+        calendar_url = hashlib.sha256(
+            (str(now) + access_token["access_token"]).encode("utf-8")
+        ).hexdigest()
 
         DuckDBConnector.write_credentials(
             calendar_url=calendar_url, **access_token
@@ -77,14 +75,24 @@ async def logged_in(request: Request) -> _TemplateResponse:
                 "request": request,
                 "athlete": client.get_athlete(),
                 "access_token": access_token,
-                "calendar_url": calendar_url,
+                "calendar_url": os.path.join(
+                    NAMESPACE.web_url, "calendar", calendar_url
+                ),
             },
         )
 
 
-@APP.get("/calendar/{calendar_url}")
-async def calendar(calendar_url: str) -> dict[str, str]:
-    if DuckDBConnector.check_if_credentials_exist(calendar_url):
-        return {"status": "ok"}
+@APP.get("/calendar/{calendar_url}", response_class=PrettyJSONResponse)
+async def calendar(calendar_url: str) -> dict[str, Any]:
+    access_token = DuckDBConnector.check_if_credentials_exist(calendar_url)
+    if access_token is not None:
+        client = Client(access_token=access_token[1])
+        activities = list(
+            client.get_activities(after="2010-01-01T00:00:00Z", limit=5)
+        )
+        return {
+            f"activity {i}": activity for i, activity in enumerate(activities)
+        }
+
     else:
         return {"status": "error", "message": "Calendar not found"}
