@@ -162,3 +162,4 @@ cython_debug/
 logs/
 ideation
 stra2ics/strava-oauth/settings.cfg
+Makefile
