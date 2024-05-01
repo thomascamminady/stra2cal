@@ -161,3 +161,4 @@ cython_debug/
 .venv/
 logs/
 ideation
+stra2ics/strava-oauth/settings.cfg

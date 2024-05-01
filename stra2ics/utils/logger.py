@@ -4,9 +4,7 @@ import os  # Importing the standard Python os module for operating system intera
 from rich.logging import RichHandler
 
 # Importing the RichHandler from rich, a library for rich text and beautiful formatting in the terminal
-from stra2ics.utils.config import Config
-
-config = Config()
+from stra2ics.utils.namespace import NAMESPACE
 
 # Set up a logger with the name of the current module.
 # This will allow us to track where logged messages are coming from.
@@ -16,22 +14,22 @@ logger = logging.getLogger(__name__)
 shell_handler = RichHandler()
 
 # If the log folder does not exist, create it.
-if not os.path.exists(config.foldername_log):
-    os.makedirs(config.foldername_log)
+if not os.path.exists(NAMESPACE.directory_log):
+    os.makedirs(NAMESPACE.directory_log)
 
 # Create a handler for logging to a file.
-file_handler = logging.FileHandler(config.filename_debug_log)
+file_handler = logging.FileHandler(NAMESPACE.filename_debug_log)
 
 # Set the log levels for the logger and the two handlers.
 # These determine the lowest severity of messages that will be handled.
-logger.setLevel(config.logger_level)
-shell_handler.setLevel(config.logger_shell_level)
-file_handler.setLevel(config.logger_file_level)
+logger.setLevel(NAMESPACE.logger_level)
+shell_handler.setLevel(NAMESPACE.logger_shell_level)
+file_handler.setLevel(NAMESPACE.logger_file_level)
 
-# Create formatters with the format strings from the config.
+# Create formatters with the format strings from the NAMESPACE.
 # These determine how the log messages will be formatted.
-shell_formatter = logging.Formatter(config.logger_shell_fmt)
-file_formatter = logging.Formatter(config.logger_file_fmt)
+shell_formatter = logging.Formatter(NAMESPACE.logger_shell_fmt)
+file_formatter = logging.Formatter(NAMESPACE.logger_file_fmt)
 
 # Attach the formatters to the handlers.
 shell_handler.setFormatter(shell_formatter)
