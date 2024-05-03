@@ -1,11 +1,12 @@
-from  datetime import datetime, timedelta
 import hashlib
 import os
+from datetime import datetime
 from typing import Any
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse,PlainTextResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
+from icalendar import Calendar, Event
 from pydantic import BaseSettings
 from starlette.templating import _TemplateResponse
 from stravalib import Client
@@ -14,7 +15,6 @@ from stra2ics.duckdb.connector import DuckDBConnector
 from stra2ics.pretty_json import PrettyJSONResponse
 from stra2ics.utils.namespace import NAMESPACE
 
-from icalendar import Calendar, Event
 
 class Settings(BaseSettings):
     strava_client_id: int
@@ -143,13 +143,15 @@ async def get_activities(calendar_url:str)->dict[str,Any]:
         return {
             f"activity {i}": {
                 "start_date": activity.start_date,
-		"stop_date": activity.start_date+activity.elapsed_time,
+                "stop_date": activity.start_date+activity.elapsed_time,
                 "name": activity.name,
+                "distance":activity.distance,
                 "duration": activity.elapsed_time,
                 "description": activity.description,
+                "id":activity.id,
             }
             for i, activity in enumerate(
-                client.get_activities(limit=4, before=datetime.now())
+                client.get_activities(limit=100, before=datetime.now())
             )
         }
     else:
@@ -157,15 +159,16 @@ async def get_activities(calendar_url:str)->dict[str,Any]:
 
 @APP.get("/calendar/{calendar_url}", response_class=PlainTextResponse)
 async def calendar(calendar_url: str) -> str:
-	activities = await get_activities(calendar_url)
-	cal = Calendar()
-	cal.add("prodid", "-//Strava Activities//")
-	cal.add("version", "2.0")
-	for activity_id,activity in activities.items():
-		event = Event()
-		event.add("dtstart",activity["start_date"])
-		event.add("dtend",activity["stop_date"])
-		event.add("summary",activity["name"])
-		cal.add_component(event)	
+        activities = await get_activities(calendar_url)
+        cal = Calendar()
+        cal.add("prodid", "-//Strava Activities//")
+        cal.add("version", "2.0")
+        for _activity_id,activity in activities.items():
+                event = Event()
+                event.add("dtstart",activity["start_date"])
+                event.add("dtend",activity["stop_date"])
+                event.add("summary",f"""{activity["name"]} ({int(activity["distance"])/1_000:.1f} km)""")
+                event.add("description",f"""https://www.strava.com/activities/{activity["id"]}""")
+                cal.add_component(event)
 
-	return cal.to_ical()
+        return cal.to_ical()

@@ -22,7 +22,7 @@ repos:
     rev: 'v0.3.5'
     hooks:
       - id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
+        args: [--fix, --exit-non-zero-on-fix,--unsafe-fixes]
 
   - repo: https://github.com/kynan/nbstripout
     rev: 0.7.1
