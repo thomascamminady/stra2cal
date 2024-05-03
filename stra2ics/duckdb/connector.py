@@ -77,3 +77,22 @@ class DuckDBConnector:
         return self._execute_query(
             query=query, parameters=parameters, fetched=True
         )
+
+    def get_latest_request(self, calendar_url: str) -> datetime.datetime:
+        """Reads the latest request from the metadata table."""
+        tokens = self.check_if_credentials_exist(calendar_url)
+        if tokens is None:
+            return datetime.datetime(1, 1, 1, 0, 0)
+
+        query = f"""
+                SELECT last_request FROM {self.namespace.tablename_metadata}
+                WHERE hash = ?
+                """
+        parameters = (calendar_url,)
+        result = self._execute_query(
+            query=query, parameters=parameters, fetched=True
+        )
+        if result is None:
+            return datetime.datetime(1, 1, 1, 0, 0)
+
+        return result[0]
