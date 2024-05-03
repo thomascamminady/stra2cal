@@ -1,10 +1,10 @@
-import datetime
+from  datetime import datetime, timedelta
 import hashlib
 import os
 from typing import Any
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse,PlainTextResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseSettings
 from starlette.templating import _TemplateResponse
@@ -14,6 +14,7 @@ from stra2ics.duckdb.connector import DuckDBConnector
 from stra2ics.pretty_json import PrettyJSONResponse
 from stra2ics.utils.namespace import NAMESPACE
 
+from icalendar import Calendar, Event
 
 class Settings(BaseSettings):
     strava_client_id: int
@@ -24,6 +25,7 @@ SETTINGS = Settings()  # type: ignore
 APP = FastAPI()
 TEMPLATES = Jinja2Templates(directory="stra2ics/login/")
 DuckDBConnector = DuckDBConnector()
+
 
 
 @APP.route("/login")
@@ -60,7 +62,7 @@ async def logged_in(request: Request) -> _TemplateResponse:
         )
 
         # salt is the current timestamp as a string
-        now = datetime.datetime.now()
+        now = datetime.now()
         calendar_url = hashlib.sha256(
             (str(now) + access_token["access_token"]).encode("utf-8")
         ).hexdigest()
@@ -116,35 +118,54 @@ async def update_access_tokens_if_expired(calendar_url: str) -> None:
     tokens = DuckDBConnector.check_if_credentials_exist(calendar_url)
     if tokens is not None:
         expires_at = tokens[3]
-        if datetime.datetime.now().timestamp() > expires_at:
+        if datetime.now().timestamp() > expires_at:
             await refresh_token(calendar_url)
 
 
 @APP.get("/get_latest_request/{calendar_url}")
-async def get_latest_request(calendar_url: str) -> datetime.datetime:
+async def get_latest_request(calendar_url: str) -> datetime:
     return DuckDBConnector.get_latest_request(calendar_url)
 
 
-@APP.get("/calendar/{calendar_url}", response_class=PrettyJSONResponse)
-async def calendar(calendar_url: str) -> dict[str, Any]:
+
+
+
+@APP.get("/get_activities/{calendar_url}", response_class=PrettyJSONResponse)
+async def get_activities(calendar_url:str)->dict[str,Any]:
     await update_access_tokens_if_expired(calendar_url)
     tokens = DuckDBConnector.check_if_credentials_exist(calendar_url)
     if tokens is not None:
         client = Client(access_token=tokens[1])
 
         DuckDBConnector.write_metadata(
-            calendar_url=calendar_url, now=datetime.datetime.now()
+            calendar_url=calendar_url, now=datetime.now()
         )
         return {
             f"activity {i}": {
                 "start_date": activity.start_date,
+		"stop_date": activity.start_date+activity.elapsed_time,
                 "name": activity.name,
                 "duration": activity.elapsed_time,
                 "description": activity.description,
             }
             for i, activity in enumerate(
-                client.get_activities(limit=4, before=datetime.datetime.now())
+                client.get_activities(limit=4, before=datetime.now())
             )
         }
     else:
         return {"status": "error", "message": ""}
+
+@APP.get("/calendar/{calendar_url}", response_class=PlainTextResponse)
+async def calendar(calendar_url: str) -> str:
+	activities = await get_activities(calendar_url)
+	cal = Calendar()
+	cal.add("prodid", "-//Strava Activities//")
+	cal.add("version", "2.0")
+	for activity_id,activity in activities.items():
+		event = Event()
+		event.add("dtstart",activity["start_date"])
+		event.add("dtend",activity["stop_date"])
+		event.add("summary",activity["name"])
+		cal.add_component(event)	
+
+	return cal.to_ical()

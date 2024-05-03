@@ -31,8 +31,9 @@ class Namespace(BaseModel):
     tablename_credentials: str = "credentials"
     tablename_activities: str = "activities"
 
-    port: int = 7777
-    web_url: str = f"http://127.0.0.1:{port}/"
+    port: int = 8080
+    ip: str = "192.168.2.121"
+    web_url: str = f"http://{ip}:{port}"
 
 
 NAMESPACE = Namespace()
