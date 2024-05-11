@@ -3,36 +3,33 @@ import os
 from datetime import datetime
 from typing import Any
 
+import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
-from icalendar import Calendar, Event
-from pydantic import BaseSettings
 from starlette.templating import _TemplateResponse
 from stravalib import Client
 
 from stra2ics.duckdb.connector import DuckDBConnector
 from stra2ics.pretty_json import PrettyJSONResponse
+from stra2ics.utils.calendar_helper import activities_to_calendar
 from stra2ics.utils.namespace import NAMESPACE
 
-
-class Settings(BaseSettings):
-    strava_client_id: int
-    strava_client_secret: str
-
-
-SETTINGS = Settings()  # type: ignore
 APP = FastAPI()
 TEMPLATES = Jinja2Templates(directory="stra2ics/login/")
 DuckDBConnector = DuckDBConnector()
 
 
+@APP.get("/")
+async def root():
+    return {"message": "Hello, World!"}
 
-@APP.route("/login")
+
+@APP.route(path="/login")
 def login(request: Request) -> _TemplateResponse:
     c = Client()
     url = c.authorization_url(
-        client_id=SETTINGS.strava_client_id,
+        client_id=NAMESPACE.credentials.STRAVA_CLIENT_ID,
         redirect_uri=os.path.join(NAMESPACE.web_url, "logged_in"),
         approval_prompt="auto",
         scope=["activity:read_all"],
@@ -56,8 +53,8 @@ async def logged_in(request: Request) -> _TemplateResponse:
             raise ValueError("Code is None")
         client = Client()
         access_token = client.exchange_code_for_token(
-            client_id=SETTINGS.strava_client_id,
-            client_secret=SETTINGS.strava_client_secret,
+            client_id=NAMESPACE.credentials.STRAVA_CLIENT_ID,
+            client_secret=NAMESPACE.credentials.STRAVA_CLIENT_SECRET,
             code=code,
         )
 
@@ -91,8 +88,8 @@ async def refresh_token(calendar_url: str) -> dict[str, str]:
     if tokens is not None:
         client = Client()
         token_response = client.refresh_access_token(
-            client_id=SETTINGS.strava_client_id,
-            client_secret=SETTINGS.strava_client_secret,
+            client_id=NAMESPACE.credentials.STRAVA_CLIENT_ID,
+            client_secret=NAMESPACE.credentials.STRAVA_CLIENT_SECRET,
             refresh_token=tokens[2],
         )
         new_access_token = token_response["access_token"]
@@ -127,11 +124,8 @@ async def get_latest_request(calendar_url: str) -> datetime:
     return DuckDBConnector.get_latest_request(calendar_url)
 
 
-
-
-
 @APP.get("/get_activities/{calendar_url}", response_class=PrettyJSONResponse)
-async def get_activities(calendar_url:str)->dict[str,Any]:
+async def get_activities(calendar_url: str) -> dict[str, Any]:
     await update_access_tokens_if_expired(calendar_url)
     tokens = DuckDBConnector.check_if_credentials_exist(calendar_url)
     if tokens is not None:
@@ -141,15 +135,7 @@ async def get_activities(calendar_url:str)->dict[str,Any]:
             calendar_url=calendar_url, now=datetime.now()
         )
         return {
-            f"activity {i}": {
-                "start_date": activity.start_date,
-                "stop_date": activity.start_date+activity.elapsed_time,
-                "name": activity.name,
-                "distance":activity.distance,
-                "duration": activity.elapsed_time,
-                "description": activity.description,
-                "id":activity.id,
-            }
+            f"activity {i}": activity
             for i, activity in enumerate(
                 client.get_activities(limit=100, before=datetime.now())
             )
@@ -157,18 +143,17 @@ async def get_activities(calendar_url:str)->dict[str,Any]:
     else:
         return {"status": "error", "message": ""}
 
-@APP.get("/calendar/{calendar_url}", response_class=PlainTextResponse)
-async def calendar(calendar_url: str) -> str:
-        activities = await get_activities(calendar_url)
-        cal = Calendar()
-        cal.add("prodid", "-//Strava Activities//")
-        cal.add("version", "2.0")
-        for _activity_id,activity in activities.items():
-                event = Event()
-                event.add("dtstart",activity["start_date"])
-                event.add("dtend",activity["stop_date"])
-                event.add("summary",f"""{activity["name"]} ({int(activity["distance"])/1_000:.1f} km)""")
-                event.add("description",f"""https://www.strava.com/activities/{activity["id"]}""")
-                cal.add_component(event)
 
-        return cal.to_ical()
+@APP.get("/calendar/{calendar_url}", response_class=PlainTextResponse)
+async def calendar(calendar_url: str) -> bytes:
+    activities = await get_activities(calendar_url)
+    return activities_to_calendar(activities).to_ical()
+
+
+if __name__ == "__main__":
+    uvicorn.run(
+        app="app:APP",
+        host=NAMESPACE.ip,
+        port=NAMESPACE.port,
+        reload=NAMESPACE.reload,
+    )

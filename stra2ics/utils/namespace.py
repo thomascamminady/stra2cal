@@ -1,7 +1,17 @@
 import logging
 from pathlib import Path
 
-from pydantic import BaseModel, DirectoryPath, FilePath
+from pydantic import BaseModel, BaseSettings, DirectoryPath, FilePath
+
+
+class Settings(BaseSettings):
+    STRAVA_CLIENT_ID: int
+    STRAVA_CLIENT_SECRET: str
+
+    class Config:
+        """Read .env."""
+
+        env_file = ".env"
 
 
 class Namespace(BaseModel):
@@ -32,8 +42,11 @@ class Namespace(BaseModel):
     tablename_activities: str = "activities"
 
     port: int = 8080
-    ip: str = "192.168.2.121"
+    ip: str = "127.0.0.1"
     web_url: str = f"http://{ip}:{port}"
+    reload: bool = True
+
+    credentials: Settings = Settings()  # type: ignore
 
 
 NAMESPACE = Namespace()
