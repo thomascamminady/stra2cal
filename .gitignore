@@ -161,7 +161,7 @@ cython_debug/
 .venv/
 logs/
 ideation
-stra2ics/strava-oauth/settings.cfg
+stra2cal/strava-oauth/settings.cfg
 Makefile
 databases
 .env

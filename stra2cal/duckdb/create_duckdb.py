@@ -1,6 +1,6 @@
 import duckdb
 
-from stra2ics.utils.namespace import NAMESPACE
+from stra2cal.utils.namespace import NAMESPACE
 
 if __name__ == "__main__":
     # If database directory does not exist, create it

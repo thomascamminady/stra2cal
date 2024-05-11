@@ -1,7 +1,7 @@
 from icalendar import Calendar, Event
 from stravalib.model import Activity
 
-from stra2ics.utils.logger import logger
+from stra2cal.utils.logger import logger
 
 
 def activities_to_calendar(

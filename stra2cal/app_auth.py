@@ -7,10 +7,10 @@ from fastapi.templating import Jinja2Templates
 from starlette.templating import _TemplateResponse
 from stravalib import Client
 
-from stra2ics.duckdb.connector import DuckDBConnector
-from stra2ics.utils.namespace import NAMESPACE
+from stra2cal.duckdb.connector import DuckDBConnector
+from stra2cal.utils.namespace import NAMESPACE
 
-TEMPLATES = Jinja2Templates(directory="stra2ics/login/")
+TEMPLATES = Jinja2Templates(directory="stra2cal/login/")
 
 
 def login(request: Request) -> _TemplateResponse:

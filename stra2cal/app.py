@@ -6,16 +6,16 @@ from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import PlainTextResponse
 from stravalib import Client
 
-from stra2ics.app_auth import (
+from stra2cal.app_auth import (
     logged_in,
     login,
     refresh_token,
     update_access_token_if_expired,
 )
-from stra2ics.duckdb.connector import DuckDBConnector
-from stra2ics.utils.calendar_helper import activities_to_calendar
-from stra2ics.utils.namespace import NAMESPACE
-from stra2ics.utils.pretty_json import PrettyJSONResponse
+from stra2cal.duckdb.connector import DuckDBConnector
+from stra2cal.utils.calendar_helper import activities_to_calendar
+from stra2cal.utils.namespace import NAMESPACE
+from stra2cal.utils.pretty_json import PrettyJSONResponse
 
 APP = FastAPI()
 ROUTER = APIRouter()
@@ -88,6 +88,8 @@ async def calendar(calendar_url: str) -> bytes:
     activities = await get_activities(calendar_url)
     return activities_to_calendar(activities).to_ical()
 
+
+APP.include_router(ROUTER)
 
 if __name__ == "__main__":
     uvicorn.run(

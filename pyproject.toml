@@ -1,12 +1,12 @@
 [tool.poetry]
-name = "stra2ics"
+name = "stra2cal"
 version = "0.1.0"
 description = ""
 authors = ["Thomas Camminady <0milieux_member@icloud.com>"]
 readme = "README.md"
-homepage = "https://github.com/thomascamminady/stra2ics"
-repository = "https://github.com/thomascamminady/stra2ics"
-documentation = "https://camminady.dev/stra2ics/stra2ics.html"
+homepage = "https://github.com/thomascamminady/stra2cal"
+repository = "https://github.com/thomascamminady/stra2cal"
+documentation = "https://camminady.dev/stra2cal/stra2cal.html"
 
 
 [tool.poetry.dependencies]

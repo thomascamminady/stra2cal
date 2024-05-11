@@ -17,5 +17,6 @@ RUN poetry config virtualenvs.create false \
 # Make port 80 available to the world outside this container
 EXPOSE 80
 
+
 # Run app.py when the container launches
-CMD ["poetry", "run", "uvicorn", "stra2ics.app:APP", "--host", "0.0.0.0", "--port", "80"]
+CMD ["poetry", "run", "uvicorn", "stra2cal.app:APP", "--host", "0.0.0.0", "--port", "80"]

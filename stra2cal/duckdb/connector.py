@@ -3,8 +3,8 @@ from typing import Literal, overload
 
 import duckdb
 
-from stra2ics.duckdb.credentials import Credentials
-from stra2ics.utils.namespace import NAMESPACE
+from stra2cal.duckdb.credentials import Credentials
+from stra2cal.utils.namespace import NAMESPACE
 
 
 class DuckDBConnector:

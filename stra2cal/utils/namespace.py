@@ -36,7 +36,7 @@ class Namespace(BaseModel):
     logger_file_fmt: str = "%(levelname)s %(asctime)s [%(filename)s:%(funcName)s:%(lineno)d] \t%(message)s"
 
     directory_databases: DirectoryPath = directory_root / "databases"
-    filename_database: FilePath = directory_databases / "stra2ics.duckdb"
+    filename_database: FilePath = directory_databases / "stra2cal.duckdb"
     tablename_metadata: str = "metadata"
     tablename_credentials: str = "credentials"
     tablename_activities: str = "activities"

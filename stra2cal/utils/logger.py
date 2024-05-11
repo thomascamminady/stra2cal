@@ -4,7 +4,7 @@ import os  # Importing the standard Python os module for operating system intera
 from rich.logging import RichHandler
 
 # Importing the RichHandler from rich, a library for rich text and beautiful formatting in the terminal
-from stra2ics.utils.namespace import NAMESPACE
+from stra2cal.utils.namespace import NAMESPACE
 
 # Set up a logger with the name of the current module.
 # This will allow us to track where logged messages are coming from.

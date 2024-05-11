@@ -6,11 +6,11 @@
     "sqltools.useNodeRuntime": true,
     "sqltools.connections": [
         {
-            "name": "stra2ics",
+            "name": "stra2cal",
             "accessMode": "Read Only",
             "previewLimit": 50,
             "driver": "DuckDB",
-            "databaseFilePath": "/Users/thomascamminady/Repos/stra2ics/databases/stra2ics.duckdb"
+            "databaseFilePath": "/Users/thomascamminady/Repos/stra2cal/databases/stra2cal.duckdb"
         }
     ]
 }
