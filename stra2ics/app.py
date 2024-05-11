@@ -11,9 +11,9 @@ from starlette.templating import _TemplateResponse
 from stravalib import Client
 
 from stra2ics.duckdb.connector import DuckDBConnector
-from stra2ics.pretty_json import PrettyJSONResponse
 from stra2ics.utils.calendar_helper import activities_to_calendar
 from stra2ics.utils.namespace import NAMESPACE
+from stra2ics.utils.pretty_json import PrettyJSONResponse
 
 APP = FastAPI()
 TEMPLATES = Jinja2Templates(directory="stra2ics/login/")
@@ -84,13 +84,13 @@ async def logged_in(request: Request) -> _TemplateResponse:
 
 @APP.get("/refresh_token/{calendar_url}")
 async def refresh_token(calendar_url: str) -> dict[str, str]:
-    tokens = DuckDBConnector.check_if_credentials_exist(calendar_url)
-    if tokens is not None:
+    token = DuckDBConnector.check_if_credentials_exist(calendar_url)
+    if token is not None:
         client = Client()
         token_response = client.refresh_access_token(
             client_id=NAMESPACE.credentials.STRAVA_CLIENT_ID,
             client_secret=NAMESPACE.credentials.STRAVA_CLIENT_SECRET,
-            refresh_token=tokens[2],
+            refresh_token=token.refresh_token,
         )
         new_access_token = token_response["access_token"]
         new_expires_at = token_response["expires_at"]
@@ -101,7 +101,7 @@ async def refresh_token(calendar_url: str) -> dict[str, str]:
         )
         return {
             "status": "ok",
-            "old_token": tokens[1],
+            "old_token": token.access_token,
             "new_access_token": new_access_token,
             "new_expires_at": str(new_expires_at),
             "new_refresh_token": new_refresh_token,
@@ -110,11 +110,11 @@ async def refresh_token(calendar_url: str) -> dict[str, str]:
         return {"status": "error", "message": ""}
 
 
-@APP.get("/update_access_tokens_if_expired/{calendar_url}")
-async def update_access_tokens_if_expired(calendar_url: str) -> None:
-    tokens = DuckDBConnector.check_if_credentials_exist(calendar_url)
-    if tokens is not None:
-        expires_at = tokens[3]
+@APP.get("/update_access_token_if_expired/{calendar_url}")
+async def update_access_token_if_expired(calendar_url: str) -> None:
+    token = DuckDBConnector.check_if_credentials_exist(calendar_url)
+    if token is not None:
+        expires_at = token.expires_at
         if datetime.now().timestamp() > expires_at:
             await refresh_token(calendar_url)
 
@@ -126,18 +126,17 @@ async def get_latest_request(calendar_url: str) -> datetime:
 
 @APP.get("/get_activities/{calendar_url}", response_class=PrettyJSONResponse)
 async def get_activities(calendar_url: str) -> dict[str, Any]:
-    await update_access_tokens_if_expired(calendar_url)
-    tokens = DuckDBConnector.check_if_credentials_exist(calendar_url)
-    if tokens is not None:
-        client = Client(access_token=tokens[1])
+    await update_access_token_if_expired(calendar_url)
+    token = DuckDBConnector.check_if_credentials_exist(calendar_url)
+    if token is not None:
+        client = Client(access_token=token.access_token)
 
         DuckDBConnector.write_metadata(
             calendar_url=calendar_url, now=datetime.now()
         )
         return {
-            f"activity {i}": activity
-            for i, activity in enumerate(
-                client.get_activities(limit=100, before=datetime.now())
+            "activities": client.get_activities(
+                limit=100, before=datetime.now()
             )
         }
     else:

@@ -3,6 +3,7 @@ from typing import Literal, overload
 
 import duckdb
 
+from stra2ics.duckdb.credentials import Credentials
 from stra2ics.utils.namespace import NAMESPACE
 
 
@@ -67,16 +68,20 @@ class DuckDBConnector:
 
         self._execute_query(query=query, parameters=parameters, fetched=False)
 
-    def check_if_credentials_exist(self, calendar_url: str) -> tuple | None:
+    def check_if_credentials_exist(
+        self, calendar_url: str
+    ) -> Credentials | None:
         """Reads the matching hash from the credentials table."""
         query = f"""
                 SELECT * FROM {self.namespace.tablename_credentials}
                 WHERE hash = ?
                 """
         parameters = (calendar_url,)
-        return self._execute_query(
+        result = self._execute_query(
             query=query, parameters=parameters, fetched=True
         )
+
+        return Credentials(*result) if result is not None else None
 
     def get_latest_request(self, calendar_url: str) -> datetime.datetime:
         """Reads the latest request from the metadata table."""
