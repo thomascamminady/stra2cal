@@ -1,22 +1,24 @@
-import hashlib
-import os
 from datetime import datetime
 from typing import Any
 
 import uvicorn
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, PlainTextResponse
-from fastapi.templating import Jinja2Templates
-from starlette.templating import _TemplateResponse
+from fastapi import APIRouter, FastAPI, Request
+from fastapi.responses import PlainTextResponse
 from stravalib import Client
 
+from stra2ics.app_auth import (
+    logged_in,
+    login,
+    refresh_token,
+    update_access_token_if_expired,
+)
 from stra2ics.duckdb.connector import DuckDBConnector
 from stra2ics.utils.calendar_helper import activities_to_calendar
 from stra2ics.utils.namespace import NAMESPACE
 from stra2ics.utils.pretty_json import PrettyJSONResponse
 
 APP = FastAPI()
-TEMPLATES = Jinja2Templates(directory="stra2ics/login/")
+ROUTER = APIRouter()
 DuckDBConnector = DuckDBConnector()
 
 
@@ -25,108 +27,46 @@ async def root():
     return {"message": "Hello, World!"}
 
 
-@APP.route(path="/login")
-def login(request: Request) -> _TemplateResponse:
-    c = Client()
-    url = c.authorization_url(
-        client_id=NAMESPACE.credentials.STRAVA_CLIENT_ID,
-        redirect_uri=os.path.join(NAMESPACE.web_url, "logged_in"),
-        approval_prompt="auto",
-        scope=["activity:read_all"],
-    )
-    return TEMPLATES.TemplateResponse(
-        name="login.html", context={"request": request, "authorize_url": url}
-    )
+ROUTER.add_api_route(
+    path="/login",
+    endpoint=login,
+)
 
 
-@APP.get("/logged_in", response_class=HTMLResponse)
-async def logged_in(request: Request) -> _TemplateResponse:
-    error = request.query_params.get("error")
-    if error:
-        return TEMPLATES.TemplateResponse(
-            name="login_error.html",
-            context={"request": request, "error": error},
-        )
-    else:
-        code = request.query_params.get("code")
-        if code is None:
-            raise ValueError("Code is None")
-        client = Client()
-        access_token = client.exchange_code_for_token(
-            client_id=NAMESPACE.credentials.STRAVA_CLIENT_ID,
-            client_secret=NAMESPACE.credentials.STRAVA_CLIENT_SECRET,
-            code=code,
-        )
-
-        # salt is the current timestamp as a string
-        now = datetime.now()
-        calendar_url = hashlib.sha256(
-            (str(now) + access_token["access_token"]).encode("utf-8")
-        ).hexdigest()
-
-        DuckDBConnector.write_credentials(
-            calendar_url=calendar_url, **access_token
-        )
-        DuckDBConnector.write_metadata(calendar_url=calendar_url, now=now)
-
-        return TEMPLATES.TemplateResponse(
-            "login_results.html",
-            {
-                "request": request,
-                "athlete": client.get_athlete(),
-                "access_token": access_token,
-                "calendar_url": os.path.join(
-                    NAMESPACE.web_url, "calendar", calendar_url
-                ),
-            },
-        )
+def _logged_in(request: Request):
+    return logged_in(request, DuckDBConnector)
 
 
-@APP.get("/refresh_token/{calendar_url}")
-async def refresh_token(calendar_url: str) -> dict[str, str]:
-    token = DuckDBConnector.check_if_credentials_exist(calendar_url)
-    if token is not None:
-        client = Client()
-        token_response = client.refresh_access_token(
-            client_id=NAMESPACE.credentials.STRAVA_CLIENT_ID,
-            client_secret=NAMESPACE.credentials.STRAVA_CLIENT_SECRET,
-            refresh_token=token.refresh_token,
-        )
-        new_access_token = token_response["access_token"]
-        new_expires_at = token_response["expires_at"]
-        new_refresh_token = token_response["refresh_token"]
-
-        DuckDBConnector.write_credentials(
-            calendar_url=calendar_url, **token_response
-        )
-        return {
-            "status": "ok",
-            "old_token": token.access_token,
-            "new_access_token": new_access_token,
-            "new_expires_at": str(new_expires_at),
-            "new_refresh_token": new_refresh_token,
-        }
-    else:
-        return {"status": "error", "message": ""}
+ROUTER.add_api_route(
+    path="/logged_in",
+    endpoint=_logged_in,
+)
 
 
-@APP.get("/update_access_token_if_expired/{calendar_url}")
-async def update_access_token_if_expired(calendar_url: str) -> None:
-    token = DuckDBConnector.check_if_credentials_exist(calendar_url)
-    if token is not None:
-        expires_at = token.expires_at
-        if datetime.now().timestamp() > expires_at:
-            await refresh_token(calendar_url)
+def _update_access_token_if_expired(
+    calendar_url: str,
+):
+    return update_access_token_if_expired(calendar_url, DuckDBConnector)
 
 
-@APP.get("/get_latest_request/{calendar_url}")
-async def get_latest_request(calendar_url: str) -> datetime:
-    return DuckDBConnector.get_latest_request(calendar_url)
+ROUTER.add_api_route(
+    path="/update_access_token_if_expired/{calendar_url}",
+    endpoint=_update_access_token_if_expired,
+)
+
+
+def _refresh_token(calendar_url: str):
+    return refresh_token(calendar_url, DuckDBConnector)
+
+
+ROUTER.add_api_route(
+    path="/refresh_token/{calendar_url}", endpoint=_refresh_token
+)
 
 
 @APP.get("/get_activities/{calendar_url}", response_class=PrettyJSONResponse)
 async def get_activities(calendar_url: str) -> dict[str, Any]:
-    await update_access_token_if_expired(calendar_url)
+    await _update_access_token_if_expired(calendar_url)
     token = DuckDBConnector.check_if_credentials_exist(calendar_url)
     if token is not None:
         client = Client(access_token=token.access_token)
@@ -135,8 +75,9 @@ async def get_activities(calendar_url: str) -> dict[str, Any]:
             calendar_url=calendar_url, now=datetime.now()
         )
         return {
-            "activities": client.get_activities(
-                limit=100, before=datetime.now()
+            f"activity {i}": activity
+            for i, activity in enumerate(
+                client.get_activities(limit=100, before=datetime.now())
             )
         }
     else:
