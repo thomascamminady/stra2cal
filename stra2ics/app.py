@@ -69,11 +69,10 @@ async def get_activities(calendar_url: str) -> dict[str, Any]:
     await _update_access_token_if_expired(calendar_url)
     token = DuckDBConnector.check_if_credentials_exist(calendar_url)
     if token is not None:
-        client = Client(access_token=token.access_token)
-
         DuckDBConnector.write_metadata(
             calendar_url=calendar_url, now=datetime.now()
         )
+        client = Client(access_token=token.access_token)
         return {
             f"activity {i}": activity
             for i, activity in enumerate(

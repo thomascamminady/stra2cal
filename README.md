@@ -2,14 +2,22 @@
 
 Find this repository on [Github](https://github.com/thomascamminady/stra2ics) or check out the [documentation](https://thomascamminady.github.io/stra2ics).
 
-
 ## Development
 
 Set up the full project by running `make`.
 
 ## Documentation
+
 Go to `Settings->Pages` and set `Source` (under `Build and deployment`) to `Github Actions`.
 
+## Docker
+
+```
+docker build -t stra2ics .
+docker run -p 4000:80 stra2ics
+```
+
+Go to `localhost:4000/login`
 
 ## Credits
 
