@@ -12,7 +12,7 @@ Go to `Settings->Pages` and set `Source` (under `Build and deployment`) to `Gith
 
 ## Docker
 
-````
+```
 docker build -t stra2cal .
 docker run -v database:/app/database -p 4000:80 my-fastapi-app
 ```
